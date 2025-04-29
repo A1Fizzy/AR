@@ -1,64 +1,103 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR с three.js и жестами</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/handtrackjs/handtrackjs/dist/handtrack.min.js"></script>
+    <title>AR Gesture Control</title>
     <style>
-        body { margin: 0; }
+        body { margin: 0; overflow: hidden; }
         canvas { display: block; }
     </style>
 </head>
 <body>
-    <a-scene embedded arjs='sourceType: webcam;'>
-        <a-entity id="model" gltf-model="url(https://modelviewer.dev/shared-assets/models/Astronaut.glb)" scale="0.1 0.1 0.1" position="0 0 0"></a-entity>
-        <a-entity camera></a-entity>
-    </a-scene>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection"></script>
 
     <script>
-        const model = document.getElementById('model');
-        let currentScale = 1;
+        let scene, camera, renderer, object;
+        let detector;
+        let videoElement;
 
-        // Инициализация отслеживания жестов
-        const video = document.createElement('video');
+        async function init() {
+            // Инициализация Three.js
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            document.body.appendChild(renderer.domElement);
 
-        // Запуск видео
-        handTrack.startVideo(video).then(status => {
-            if (status) {
-                console.log("Видео запущено");
-                detectHands();
-            }
-        });
+            // Настройка WebXR
+            renderer.xr.addEventListener('sessionstart', async () => {
+                videoElement = document.createElement('video');
+                navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+                    videoElement.srcObject = stream;
+                    videoElement.play();
+                });
+            });
 
-        // Функция для обнаружения рук
-        function detectHands() {
-            handTrack.detect(video).then(predictions => {
-                if (predictions.length > 0) {
-                    const hand = predictions[0];
-                    const fingersClosed = hand.landmarks[4][1] < hand.landmarks[3][1]; // Пример: проверка на сжатие пальцев
+            // Добавление 3D-объекта
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            object = new THREE.Mesh(geometry, material);
+            object.position.set(0, 0, -2);
+            scene.add(object);
 
-                    if (fingersClosed) {
-                        currentScale += 0.01; // Увеличение масштаба
-                    } else {
-                        currentScale -= 0.01; // Уменьшение масштаба
-                    }
-
-                    model.setAttribute('scale', `${currentScale} ${currentScale} ${currentScale}`);
+            // Инициализация детектора жестов
+            detector = await handPoseDetection.createDetector(
+                handPoseDetection.SupportedModels.MediaPipeHands,
+                {
+                    runtime: 'mediapipe',
+                    modelType: 'full',
+                    maxHands: 1,
+                    solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands'
                 }
-                requestAnimationFrame(detectHands);
+            );
+
+            // Запуск AR сессии
+            const session = await navigator.xr.requestSession('immersive-ar');
+            renderer.xr.setSession(session);
+
+            animate();
+        }
+
+        async function detectGestures() {
+            if (!videoElement) return;
+
+            const hands = await detector.estimateHands(videoElement);
+            if (hands.length > 0) {
+                const hand = hands[0];
+                // Жест масштабирования (пинч)
+                const thumbTip = hand.keypoints.find(k => k.name === 'thumb_tip');
+                const indexTip = hand.keypoints.find(k => k.name === 'index_finger_tip');
+                const distance = Math.hypot(
+                    thumbTip.x - indexTip.x,
+                    thumbTip.y - indexTip.y
+                );
+                
+                if (distance < 40) { // Пороговое значение для пинча
+                    const scale = 1 + (40 - distance) * 0.01;
+                    object.scale.set(scale, scale, scale);
+                }
+
+                // Вращение по ориентации ладони
+                const wrist = hand.keypoints.find(k => k.name === 'wrist');
+                const middleBase = hand.keypoints.find(k => k.name === 'middle_finger_mcp');
+                const angle = Math.atan2(
+                    middleBase.y - wrist.y,
+                    middleBase.x - wrist.x
+                );
+                object.rotation.y = angle;
+            }
+        }
+
+        function animate() {
+            renderer.setAnimationLoop(() => {
+                detectGestures();
+                renderer.render(scene, camera);
             });
         }
 
-        // Инициализация handtrack.js
-        handTrack.load().then(model => {
-            console.log("Модель загружена");
-            detectHands();
-        }).catch(err => {
-            console.error("Ошибка загрузки модели handtrack.js:", err);
-        });
+        init();
     </script>
 </body>
 </html>
