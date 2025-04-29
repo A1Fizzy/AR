@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Куб с A-Frame и отслеживанием рук</title>
+    <title>AR Модель с A-Frame и отслеживанием рук</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.8.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
@@ -16,7 +16,7 @@
 <body>
     <video id="myvideo" autoplay playsinline></video>
     <canvas id="videoCanvas"></canvas>
-    <a-scene embedded arjs='sourceType: webcam;'>
+    <a-scene embedded>
         <a-entity id="custom-model" 
                   gltf-model="kamaz_4310.glb" 
                   scale="0.1 0.1 0.1" 
@@ -41,29 +41,8 @@
         // Запуск камеры
         async function startCamera() {
             try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                console.log("Available cameras:", videoDevices);
-
-                let videoConstraints = { width: 640, height: 480 };
-
-                const rearCamera = videoDevices.find(device => 
-                    device.label.toLowerCase().includes('back') || 
-                    device.label.toLowerCase().includes('rear') || 
-                    device.label.toLowerCase().includes('environment')
-                );
-
-                if (rearCamera) {
-                    console.log("Using rear camera:", rearCamera.label);
-                    videoConstraints.deviceId = { exact: rearCamera.deviceId };
-                } else {
-                    console.warn("Rear camera not found, falling back to default camera.");
-                    alert("Rear camera not found. Using default camera. Switch to rear camera if possible.");
-                    videoConstraints.facingMode = "environment";
-                }
-
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: videoConstraints
+                    video: { facingMode: "environment" }
                 });
                 video.srcObject = stream;
                 video.onloadedmetadata = () => {
@@ -98,21 +77,45 @@
                     ctx.fill();
                 }
 
-                // Используем кончик указательного пальца (точка 8) для перемещения модели
+                // Получаем состояние пальцев
+                const thumb = landmarks[4]; // Большой палец
+                const indexFinger = landmarks[8]; // Указательный палец
+                const middleFinger = landmarks[12]; // Средний палец
+
+                // Проверяем жесты
+                const isThumbIndexClose = Math.abs(thumb.y - indexFinger.y) < 0.05; // Сомкнуты ли большой и указательный пальцы
+                const isThumbMiddleClose = Math.abs(thumb.y - middleFinger.y) < 0.05; // Сомкнуты ли большой и средний пальцы
+                const isIndexFingerUp = indexFinger.y < thumb.y; // Указательный палец поднят
+
+                const model = document.getElementById('custom-model');
+
+                // Уменьшение модели
+                if (isThumbIndexClose) {
+                    const currentScale = model.getAttribute('scale');
+                    model.setAttribute('scale', { x: currentScale.x * 0.95, y: currentScale.y * 0.95, z: currentScale.z * 0.95 });
+                }
+
+                // Увеличение модели
+                if (isThumbMiddleClose) {
+                    const currentScale = model.getAttribute('scale');
+                                        model.setAttribute('scale', { x: currentScale.x * 1.05, y: currentScale.y * 1.05, z: currentScale.z * 1.05 });
+                }
+
+                // Поворот модели
+                if (isIndexFingerUp) {
+                    const currentRotation = model.getAttribute('rotation');
+                    model.setAttribute('rotation', { x: currentRotation.x, y: currentRotation.y + 1, z: currentRotation.z });
+                }
+
+                // Перемещение модели в зависимости от положения указательного пальца
                 const handX = landmarks[8].x; // Кончик указательного пальца
                 const handY = landmarks[8].y;
 
-                // Преобразуем координаты для A-Frame
-                const scene = document.querySelector('a-scene');
-                const width = scene.canvas.width;
-                const height = scene.canvas.height;
-
-                                // Нормализуем координаты
+                // Нормализуем координаты
                 const normalizedX = (handX - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
                 const normalizedY = -(handY - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
 
                 // Устанавливаем позицию модели
-                const model = document.getElementById('custom-model');
                 model.setAttribute('position', { x: normalizedX, y: normalizedY, z: -3 });
             }
         });
