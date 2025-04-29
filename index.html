@@ -22,19 +22,27 @@
         const model = document.getElementById('model');
         let currentScale = 1;
 
-        // Инициализация отслеживания жестов
-        const video = document.createElement('video');
-
-        // Запуск видео
-        handTrack.startVideo(video).then(status => {
-            if (status) {
-                console.log("Видео запущено");
-                detectHands();
-            }
+        // Инициализация handtrack.js
+        handTrack.load().then(model => {
+            console.log("Модель handtrack.js загружена");
+            startVideo();
+        }).catch(err => {
+            console.error("Ошибка загрузки модели handtrack.js:", err);
         });
 
-        // Функция для обнаружения рук
-        function detectHands() {
+        function startVideo() {
+            const video = document.createElement('video');
+            handTrack.startVideo(video).then(status => {
+                if (status) {
+                    console.log("Видео запущено");
+                    detectHands(video);
+                } else {
+                    console.error("Не удалось запустить видео");
+                }
+            });
+        }
+
+        function detectHands(video) {
             handTrack.detect(video).then(predictions => {
                 if (predictions.length > 0) {
                     const hand = predictions[0];
@@ -48,15 +56,9 @@
 
                     model.setAttribute('scale', `${currentScale} ${currentScale} ${currentScale}`);
                 }
-                requestAnimationFrame(detectHands);
+                requestAnimationFrame(() => detectHands(video));
             });
         }
-
-        // Инициализация handtrack.js
-        handTrack.load().then(model => {
-            console.log("Модель загружена");
-            detectHands();
-        });
     </script>
 </body>
 </html>
