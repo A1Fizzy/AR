@@ -13,24 +13,8 @@
 </head>
 <body>
     <a-scene embedded arjs='sourceType: webcam;'>
-        <a-entity id="custom-cube" position="0 0 -1"></a-entity>
+        <a-entity id="custom-cube" geometry="primitive: box; width: 0.2; height: 0.2; depth: 0.2" material="color: #00ff00" position="0 0 -1"></a-entity>
         <a-entity camera></a-entity>
     </a-scene>
-
-    <script>
-        // Получаем ссылку на сцену
-        const scene = document.querySelector('a-scene');
-
-        // Создаем 3D-объект
-        const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-        const object = new THREE.Mesh(geometry, material);
-
-        // Устанавливаем позицию объекта перед камерой
-        object.position.set(0, 0, -1);
-
-        // Добавляем объект в сцену
-        scene.add(object);
-    </script>
 </body>
 </html>
