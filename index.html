@@ -20,7 +20,7 @@
         <a-entity id="custom-cube" 
                   geometry="primitive: box; width: 0.2; height: 0.2; depth: 0.2" 
                   material="color: #00ff00" 
-                  position="0 0 10"></a-entity>
+                  position="0 0 -3"></a-entity>
         <a-entity camera></a-entity>
     </a-scene>
 
@@ -113,7 +113,7 @@
 
                 // Устанавливаем позицию куба
                 const cube = document.getElementById('custom-cube');
-                cube.setAttribute('position', { x: normalizedX, y: normalizedY, z: 10 });
+                cube.setAttribute('position', { x: normalizedX, y: normalizedY, z: -3 });
             }
         });
 
