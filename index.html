@@ -48,46 +48,42 @@
 
         // Инициализация Three.js и AR.js
         function initAR() {
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true
+            });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.getElementById('ar-container').appendChild(renderer.domElement);
-
-            // Scene & Camera
+        
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-
-            // AR Source
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.01, 1000);
+            
+            // Добавляем координатные оси для отладки
+            const axesHelper = new THREE.AxesHelper(1);
+            scene.add(axesHelper);
+        
             arToolkitSource = new THREEx.ArToolkitSource({
-                sourceType: 'webcam'
+                sourceType: 'webcam',
+                sourceWidth: 1280,
+                sourceHeight: 720
             });
-
-            // AR Context
+        
             arToolkitContext = new THREEx.ArToolkitContext({
-                cameraParametersUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/camera_para.dat',
+                cameraParametersUrl: 'data/camera_para.dat',
                 detectionMode: 'mono',
+                maxDetectionRate: 60,
+                canvasWidth: 1280,
+                canvasHeight: 720
             });
-
-            // Инициализация видео и AR
+        
             arToolkitSource.init(() => {
                 arToolkitContext.init(() => {
+                    camera.projectionMatrix.needsUpdate = true;
                     camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
-
-                    // Создаем группу для объектов AR
-                    markerRoot = new THREE.Group();
-                    scene.add(markerRoot);
-
-                    // Добавляем куб
-                    loadCube();
-
-                    // Привязываем к маркеру
-                    new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-                        type: 'pattern',
-                        patternUrlMarker: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/patt.hiro',
-                        smooth: true,
-                        smoothCount: 5,
-                        smoothTolerance: 0.01
-                    });
+                    camera.updateMatrixWorld(true);
+                    
+                    // Принудительный рендеринг первого кадра
+                    renderer.render(scene, camera);
                 });
             });
         }
