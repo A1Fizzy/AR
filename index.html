@@ -6,7 +6,7 @@
     <title>AR с three.js и жестами</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <script src="https://cdn.rawgit.com/handtrackjs/handtrackjs/master/dist/handtrack.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/handtrackjs/handtrackjs/dist/handtrack.min.js"></script>
     <style>
         body { margin: 0; }
         canvas { display: block; }
@@ -25,6 +25,7 @@
         // Инициализация отслеживания жестов
         const video = document.createElement('video');
 
+        // Запуск видео
         handTrack.startVideo(video).then(status => {
             if (status) {
                 console.log("Видео запущено");
@@ -32,6 +33,7 @@
             }
         });
 
+        // Функция для обнаружения рук
         function detectHands() {
             handTrack.detect(video).then(predictions => {
                 if (predictions.length > 0) {
@@ -49,6 +51,12 @@
                 requestAnimationFrame(detectHands);
             });
         }
+
+        // Инициализация handtrack.js
+        handTrack.load().then(model => {
+            console.log("Модель загружена");
+            detectHands();
+        });
     </script>
 </body>
 </html>
