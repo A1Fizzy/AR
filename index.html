@@ -16,19 +16,39 @@
 <body>
     <video id="myvideo" autoplay playsinline></video>
     <canvas id="videoCanvas"></canvas>
-    <a-scene embedded arjs='sourceType: webcam;'>
+<!--     <a-scene embedded arjs='sourceType: webcam;'>
         <a-entity id="custom-cube" 
                   geometry="primitive: box; width: 0.2; height: 0.2; depth: 0.2" 
                   material="color: #00ff00" 
                   position="0 0 -3"></a-entity>
         <a-entity camera></a-entity>
-    </a-scene>
+    </a-scene> -->
 
     <script type="module">
         // Инициализация MediaPipe Hands
         const video = document.getElementById("myvideo");
         const canvas = document.getElementById("videoCanvas");
         const ctx = canvas.getContext("2d");
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const smoothingFactor = 0.1; // Коэффициент сглаживания
+        let targetX = 0; // Целевая позиция X для сглаживания
+        let targetY = 0; // Целевая позиция Y для сглаживания
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.domElement.id = "rendererCanvas";
+        document.body.appendChild(renderer.domElement);
+    
+        // Позиция камеры
+        camera.position.set(0, 0, 0);
+        camera.lookAt(0, 0, -1);
+
+        const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0x00FF00, transparent: true, opacity: 0.8 });
+        const cube = new THREE.Mesh(catcherGeometry, catcherMaterial);
+        cube.position.set(0, 0, -1);
+        scene.add(catcher);
 
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
         hands.setOptions({
@@ -103,17 +123,19 @@
                 const handY = landmarks[8].y;
 
                 // Преобразуем координаты для A-Frame
-                const scene = document.querySelector('a-scene');
-                const width = scene.canvas.width;
-                const height = scene.canvas.height;
+                // const scene = document.querySelector('a-scene');
+                // const width = scene.canvas.width;
+                // const height = scene.canvas.height;
 
                 // Нормализуем координаты
                 const normalizedX = (handX - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
                 const normalizedY = -(handY - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
 
                 // Устанавливаем позицию куба
-                const cube = document.getElementById('custom-cube');
-                cube.setAttribute('position', { x: normalizedX, y: normalizedY, z: -3 });
+                const currentX = cube.position.x;
+                const currentY = cube.position.y;
+                cube.position.x += (targetX - currentX) * smoothingFactor;
+                cube.position.y += (targetY - currentY) * smoothingFactor;
             }
         });
 
@@ -123,11 +145,10 @@
         // Обработка изменения размера окна
         window.addEventListener("resize", () => {
             canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            const scene = document.querySelector('a-scene');
-            scene.renderer.setSize(window.innerWidth, window.innerHeight);
-            scene.camera.aspect = window.innerWidth / window.innerHeight;
-            scene.camera.updateProjectionMatrix();
+          canvas.height = window.innerHeight;
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
         });
 
         // Установка начальных размеров канваса
