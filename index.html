@@ -17,9 +17,9 @@
     <video id="myvideo" autoplay playsinline></video>
     <canvas id="videoCanvas"></canvas>
     <a-scene embedded arjs='sourceType: webcam;'>
-        <a-entity id="custom-cube" 
-                  geometry="primitive: box; width: 0.2; height: 0.2; depth: 0.2" 
-                  material="color: #00ff00" 
+        <a-entity id="custom-model" 
+                  gltf-model="kamaz_4310.glb" 
+                  scale="0.1 0.1 0.1" 
                   position="0 0 -3"></a-entity>
         <a-entity camera></a-entity>
     </a-scene>
@@ -98,7 +98,7 @@
                     ctx.fill();
                 }
 
-                // Используем кончик указательного пальца (точка 8) для перемещения куба
+                // Используем кончик указательного пальца (точка 8) для перемещения модели
                 const handX = landmarks[8].x; // Кончик указательного пальца
                 const handY = landmarks[8].y;
 
@@ -107,13 +107,13 @@
                 const width = scene.canvas.width;
                 const height = scene.canvas.height;
 
-                // Нормализуем координаты
+                                // Нормализуем координаты
                 const normalizedX = (handX - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
                 const normalizedY = -(handY - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
 
-                // Устанавливаем позицию куба
-                const cube = document.getElementById('custom-cube');
-                cube.setAttribute('position', { x: normalizedX, y: normalizedY, z: -3 });
+                // Устанавливаем позицию модели
+                const model = document.getElementById('custom-model');
+                model.setAttribute('position', { x: normalizedX, y: normalizedY, z: -3 });
             }
         });
 
