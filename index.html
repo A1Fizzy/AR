@@ -50,6 +50,15 @@
         model.addEventListener('model-loaded', () => {
             console.log("Model loaded successfully");
             model.setAttribute('visible', true);
+        
+            // Принудительно обновляем камеру и рендерер
+            const sceneEl = document.querySelector('a-scene');
+            if (sceneEl && sceneEl.renderer) {
+                sceneEl.renderer.setSize(window.innerWidth, window.innerHeight);
+                sceneEl.camera.aspect = window.innerWidth / window.innerHeight;
+                sceneEl.camera.updateProjectionMatrix();
+                sceneEl.render(); // один раз вручную запускаем рендер
+            }
         });
         
         // Запуск камеры
