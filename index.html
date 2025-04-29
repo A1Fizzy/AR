@@ -17,6 +17,9 @@
     <video id="myvideo" autoplay playsinline></video>
     <canvas id="videoCanvas"></canvas>
     <a-scene embedded>
+        <a-entity light="type: ambient; intensity: 0.5;"></a-entity>
+        <a-entity light="type: directional; color: #FFF; intensity: 1" position="0 5 -5"></a-entity>
+
         <a-entity id="custom-model" 
             gltf-model="kamaz_4310.glb" 
             scale="0.1 0.1 0.1" 
