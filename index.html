@@ -3,117 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Gesture Control with Video</title>
+    <title>AR Куб с A-Frame</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; }
+        body { margin: 0; }
         canvas { display: block; }
-        video { display: none; } /* Скрыть видео элемент */
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection"></script>
 </head>
 <body>
-    <script>
-        let scene, camera, renderer, object;
-        let detector;
-        let videoElement;
-
-        async function init() {
-            // Инициализация Three.js
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
-
-            // Создание видео элемента
-            videoElement = document.createElement('video');
-            videoElement.style.display = 'none'; // Скрыть видео элемент
-            videoElement.width = window.innerWidth;
-            videoElement.height = window.innerHeight;
-
-            // Получение доступа к камере
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                videoElement.srcObject = stream;
-                videoElement.play();
-            } catch (error) {
-                console.error("Ошибка доступа к камере: ", error);
-                return;
-            }
-
-            // Добавление 3D-объекта
-            const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-            object = new THREE.Mesh(geometry, material);
-            object.position.set(0, 0, -1); // Позиция объекта перед камерой
-            scene.add(object);
-
-            // Инициализация детектора жестов
-            try {
-                detector = await handPoseDetection.createDetector(
-                    handPoseDetection.SupportedModels.MediaPipeHands,
-                    {
-                        runtime: 'mediapipe',
-                        modelType: 'full',
-                        maxHands: 1,
-                        solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands'
-                    }
-                );
-            } catch (error) {
-                console.error("Ошибка инициализации детектора жестов: ", error);
-                return;
-            }
-
-            // Запуск анимации
-            animate();
-        }
-
-        async function detectGestures() {
-            if (!videoElement) return;
-
-            const hands = await detector.estimateHands(videoElement);
-            if (hands.length > 0) {
-                const hand = hands[0];
-
-                // Жест масштабирования (пинч)
-                const thumbTip = hand.keypoints.find(k => k.name === 'thumb_tip');
-                const indexTip = hand.keypoints.find(k => k.name === 'index_finger_tip');
-                const distance = Math.hypot(
-                    thumbTip.x - indexTip.x,
-                    thumbTip.y - indexTip.y
-                );
-
-                // Пороговое значение для пинча
-                if (distance < 40) {
-                    const scale = 1 + (40 - distance) * 0.01;
-                    object.scale.set(scale, scale, scale);
-                }
-
-                // Вращение по ориентации ладони
-                const wrist = hand.keypoints.find(k => k.name === 'wrist');
-                const middleBase = hand.keypoints.find(k => k.name === 'middle_finger_mcp');
-                const angle = Math.atan2(
-                    middleBase.y - wrist.y,
-                    middleBase.x - wrist.x
-                );
-                object.rotation.y = angle;
-
-                // Перемещение объекта (например, по оси Z)
-                const palmCenter = hand.keypoints.find(k => k.name === 'palm_base');
-                object.position.z = -1 + (palmCenter.y / window.innerHeight) * 2; // Пример перемещения по Z
-            }
-        }
-
-        function animate() {
-            renderer.setAnimationLoop(() => {
-                detectGestures();
-                renderer.render(scene, camera);
-            });
-        }
-
-        init();
-    </script>
+    <a-scene embedded arjs='sourceType: webcam;'>
+        <a-marker preset="hiro">
+            <a-box position="0 0.5 0" rotation="0 45 0" color="#4CC3D0" scale="0.5 0.5 0.5"></a-box>
+        </a-marker>
+        <a-entity camera></a-entity>
+    </a-scene>
 </body>
 </html>
