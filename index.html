@@ -54,7 +54,8 @@
         // Ждём загрузки модели и делаем её видимой
         model.addEventListener('model-loaded', () => {
             console.log("Model loaded successfully");
-            console.log(model.getObject3D('mesh').material);
+            const sceneM = model.getObject3D('scene');
+            console.log(sceneM);
             model.setAttribute('visible', true);
         
             // Принудительно обновляем камеру и рендерер
