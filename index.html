@@ -20,17 +20,19 @@
         <a-entity id="custom-model" 
             gltf-model="kamaz_4310.glb" 
             scale="0.1 0.1 0.1" 
+            visible="true"
             position="0 0 -3">
         </a-entity>
         <a-entity camera></a-entity>
     </a-scene>
 
     <script type="module">
-        // Инициализация MediaPipe Hands
+        // Инициализация элементов
         const video = document.getElementById("myvideo");
         const canvas = document.getElementById("videoCanvas");
         const ctx = canvas.getContext("2d");
-
+        
+        // Подключение MediaPipe Hands
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
         hands.setOptions({
             maxNumHands: 1,
@@ -38,7 +40,16 @@
             minDetectionConfidence: 0.5,
             minTrackingConfidence: 0.5
         });
-
+        
+        // Получаем модель
+        const model = document.getElementById('custom-model');
+        
+        // Ждём загрузки модели и делаем её видимой
+        model.addEventListener('model-loaded', () => {
+            console.log("Model loaded successfully");
+            model.setAttribute('visible', true);
+        });
+        
         // Запуск камеры
         async function startCamera() {
             try {
@@ -55,19 +66,20 @@
                 alert("Failed to start camera: " + err.message);
             }
         }
-
+        
         async function processFrame() {
             await hands.send({ image: video });
             requestAnimationFrame(processFrame);
         }
-
+        
         hands.onResults((results) => {
+            // Рисуем видео
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
+        
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
-
+        
                 // Рисуем ключевые точки
                 for (const landmark of landmarks) {
                     const x = landmark.x * canvas.width;
@@ -77,57 +89,51 @@
                     ctx.fillStyle = "green";
                     ctx.fill();
                 }
-
-                // Получаем состояние пальцев
-                const thumb = landmarks[4]; // Большой палец
-                const indexFinger = landmarks[8]; // Указательный палец
-                const middleFinger = landmarks[12]; // Средний палец
-
-                // Проверяем жесты
-                const isThumbIndexClose = Math.abs(thumb.y - indexFinger.y) < 0.05; // Сомкнуты ли большой и указательный пальцы
-                const isThumbMiddleClose = Math.abs(thumb.y - middleFinger.y) < 0.05; // Сомкнуты ли большой и средний пальцы
-                const isIndexFingerUp = indexFinger.y < thumb.y; // Указательный палец поднят
-
-                const model = document.getElementById('custom-model');
-                model.addEventListener('model-loaded', () => {
-                    model.setAttribute('visible', true);
-                    console.log("Model is now visible");
-                });
-
-                // Уменьшение модели
-                if (isThumbIndexClose) {
-                    const currentScale = model.getAttribute('scale');
-                    model.setAttribute('scale', { x: currentScale.x * 0.95, y: currentScale.y * 0.95, z: currentScale.z * 0.95 });
+        
+                // Контролируем модель только если она загружена
+                if (model.components && model.getAttribute('visible')) {
+        
+                    const thumb = landmarks[4];
+                    const indexFinger = landmarks[8];
+                    const middleFinger = landmarks[12];
+        
+                    const isThumbIndexClose = Math.abs(thumb.y - indexFinger.y) < 0.05;
+                    const isThumbMiddleClose = Math.abs(thumb.y - middleFinger.y) < 0.05;
+                    const isIndexFingerUp = indexFinger.y < thumb.y;
+        
+                    // Уменьшение
+                    if (isThumbIndexClose) {
+                        const currentScale = model.getAttribute('scale');
+                        model.setAttribute('scale', { x: currentScale.x * 0.95, y: currentScale.y * 0.95, z: currentScale.z * 0.95 });
+                    }
+        
+                    // Увеличение
+                    if (isThumbMiddleClose) {
+                        const currentScale = model.getAttribute('scale');
+                        model.setAttribute('scale', { x: currentScale.x * 1.05, y: currentScale.y * 1.05, z: currentScale.z * 1.05 });
+                    }
+        
+                    // Вращение
+                    if (isIndexFingerUp) {
+                        const currentRotation = model.getAttribute('rotation');
+                        model.setAttribute('rotation', { x: currentRotation.x, y: currentRotation.y + 1, z: currentRotation.z });
+                    }
+        
+                    // Перемещение
+                    const handX = landmarks[8].x;
+                    const handY = landmarks[8].y;
+        
+                    const normalizedX = (handX - 0.5) * 4;
+                    const normalizedY = -(handY - 0.5) * 4;
+        
+                    model.setAttribute('position', { x: normalizedX, y: normalizedY, z: -3 });
                 }
-
-                // Увеличение модели
-                if (isThumbMiddleClose) {
-                    const currentScale = model.getAttribute('scale');
-                                        model.setAttribute('scale', { x: currentScale.x * 1.05, y: currentScale.y * 1.05, z: currentScale.z * 1.05 });
-                }
-
-                // Поворот модели
-                if (isIndexFingerUp) {
-                    const currentRotation = model.getAttribute('rotation');
-                    model.setAttribute('rotation', { x: currentRotation.x, y: currentRotation.y + 1, z: currentRotation.z });
-                }
-
-                // Перемещение модели в зависимости от положения указательного пальца
-                const handX = landmarks[8].x; // Кончик указательного пальца
-                const handY = landmarks[8].y;
-
-                // Нормализуем координаты
-                const normalizedX = (handX - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
-                const normalizedY = -(handY - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
-
-                // Устанавливаем позицию модели
-                model.setAttribute('position', { x: normalizedX, y: normalizedY, z: -3 });
             }
         });
-
+        
         // Запуск камеры
         startCamera();
-
+        
         // Обработка изменения размера окна
         window.addEventListener("resize", () => {
             canvas.width = window.innerWidth;
@@ -137,7 +143,7 @@
             scene.camera.aspect = window.innerWidth / window.innerHeight;
             scene.camera.updateProjectionMatrix();
         });
-
+        
         // Установка начальных размеров канваса
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
