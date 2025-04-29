@@ -6,16 +6,16 @@
     <title>AR Куб с A-Frame и отслеживанием рук</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.8.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
     <style>
         body { margin: 0; }
-        video, canvas { position: absolute; top: 0; left: 0; }
+        video { display: none; }
+        canvas { position: absolute; top: 0; left: 0; }
     </style>
 </head>
 <body>
-    <video width="720" height="1200" autoplay></video>
-    <canvas width="720" height="1200"></canvas>
+    <video id="myvideo" autoplay playsinline></video>
+    <canvas id="videoCanvas"></canvas>
     <a-scene embedded arjs='sourceType: webcam;'>
         <a-entity id="custom-cube" 
                   geometry="primitive: box; width: 0.2; height: 0.2; depth: 0.2" 
@@ -25,62 +25,96 @@
     </a-scene>
 
     <script type="module">
-        // Извлечение элементов из разметки
-        let video = window.document.querySelector('video');
-        let canvas = window.document.querySelector('canvas');
-        let context = canvas.getContext('2d');
+        // Инициализация MediaPipe Hands
+        const video = document.getElementById("myvideo");
+        const canvas = document.getElementById("videoCanvas");
+        const ctx = canvas.getContext("2d");
 
-        // Загрузка и настройка модели
-        let model = handPoseDetection.SupportedModels.MediaPipeHands;
-        let detectorConfig = {
-            runtime: 'mediapipe', // or 'tfjs'
-            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands',
-            modelType: 'lite',
-        }
-        let detector = await handPoseDetection.createDetector(model, detectorConfig);
-
-        // Получение изображения с камеры и отображение точек
-        navigator.mediaDevices.getUserMedia({
-            video: {
-                width: 1200,
-                height: 720,
-                facingMode: {
-                    exact: 'environment' // Используйте 'user' для фронтальной камеры
-                }
-            },
-            audio: false
-        }).then(stream => {
-            video.srcObject = stream;
-            video.play().then(() => {
-                console.log("Видео воспроизводится");
-                setInterval(async () => {
-                    const predictions = await detector.estimateHands(video);
-                    context.clearRect(0, 0, canvas.width, canvas.height);
-                    if (predictions.length > 0) {
-                        const hand = predictions[0].keypoints;
-                                                hand.forEach(coordinates => {
-                            context.fillStyle = 'blue';
-                            context.fillRect(coordinates.x - 5, coordinates.y - 5, 10, 10);
-                        });
-
-                        // Преобразуем координаты для A-Frame
-                        const scene = document.querySelector('a-scene');
-                        const width = scene.canvas.width;
-                        const height = scene.canvas.height;
-
-                        // Нормализуем координаты
-                        const normalizedX = (hand[0].x / width) * 2 - 1; // Используем координаты первого ключевого пункта (обычно запястье)
-                        const normalizedY = -(hand[0].y / height) * 2 + 1;
-
-                        // Устанавливаем позицию куба
-                        const cube = document.getElementById('custom-cube');
-                        cube.setAttribute('position', { x: normalizedX, y: normalizedY, z: -1 });
-                    }
-                }, 100);
-            });
-        }).catch(error => {
-            console.error("Ошибка доступа к камере: ", error);
+        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 0,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
         });
+
+        // Запуск камеры
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: "user" // Используйте "environment" для задней камеры
+                    }
+                });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    processFrame();
+                };
+            } catch (err) {
+                console.error("Camera start error:", err);
+                alert("Failed to start camera: " + err.message);
+            }
+        }
+
+        async function processFrame() {
+            await hands.send({ image: video });
+            requestAnimationFrame(processFrame);
+        }
+
+        hands.onResults((results) => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+
+                // Рисуем ключевые точки
+                for (const landmark of landmarks) {
+                    const x = landmark.x * canvas.width;
+                    const y = landmark.y * canvas.height;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                    ctx.fillStyle = "green";
+                    ctx.fill();
+                }
+
+                // Используем кончик указательного пальца (точка 8) для перемещения куба
+                const handX = landmarks[8].x; // Кончик указательного пальца
+                const handY = landmarks[8].y;
+
+                // Преобразуем координаты для A-Frame
+                const scene = document.querySelector('a-scene');
+                const width = scene.canvas.width;
+                const height = scene.canvas.height;
+
+                // Нормализуем координаты
+                const normalizedX = (handX - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
+                const normalizedY = -(handY - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
+
+                // Устанавливаем позицию куба
+                                // Устанавливаем позицию куба
+                const cube = document.getElementById('custom-cube');
+                cube.setAttribute('position', { x: normalizedX, y: normalizedY, z: -1 });
+            }
+        });
+
+        // Запуск камеры
+        startCamera();
+
+        // Обработка изменения размера окна
+        window.addEventListener("resize", () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const scene = document.querySelector('a-scene');
+            scene.renderer.setSize(window.innerWidth, window.innerHeight);
+            scene.camera.aspect = window.innerWidth / window.innerHeight;
+            scene.camera.updateProjectionMatrix();
+        });
+
+        // Установка начальных размеров канваса
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
     </script>
 </body>
 </html>
