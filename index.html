@@ -13,6 +13,7 @@
 <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection"></script>
 
     <script>
@@ -35,9 +36,14 @@
             videoElement.height = window.innerHeight;
 
             // Получение доступа к камере
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            videoElement.srcObject = stream;
-            videoElement.play();
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoElement.srcObject = stream;
+                videoElement.play();
+            } catch (error) {
+                console.error("Ошибка доступа к камере: ", error);
+                return;
+            }
 
             // Добавление 3D-объекта
             const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
@@ -47,15 +53,20 @@
             scene.add(object);
 
             // Инициализация детектора жестов
-            detector = await handPoseDetection.createDetector(
-                handPoseDetection.SupportedModels.MediaPipeHands,
-                {
-                    runtime: 'mediapipe',
-                    modelType: 'full',
-                    maxHands: 1,
-                    solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands'
-                }
-            );
+            try {
+                detector = await handPoseDetection.createDetector(
+                    handPoseDetection.SupportedModels.MediaPipeHands,
+                    {
+                        runtime: 'mediapipe',
+                        modelType: 'full',
+                        maxHands: 1,
+                        solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands'
+                    }
+                );
+            } catch (error) {
+                console.error("Ошибка инициализации детектора жестов: ", error);
+                return;
+            }
 
             // Запуск анимации
             animate();
