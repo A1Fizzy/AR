@@ -18,9 +18,11 @@
     <canvas id="videoCanvas"></canvas>
     <a-scene embedded>
         <a-entity id="custom-model" 
-                  gltf-model="kamaz_4310.glb" 
-                  scale="0.1 0.1 0.1" 
-                  position="0 0 -3"></a-entity>
+          gltf-model="kamaz_4310.glb" 
+          scale="0.1 0.1 0.1" 
+          position="0 0 -3"
+          visible="false"
+          model-loaded="this.setAttribute('visible', true);"></a-entity>
         <a-entity camera></a-entity>
     </a-scene>
 
