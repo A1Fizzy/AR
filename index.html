@@ -59,24 +59,24 @@
             camera.position.set(0, 0, 2); // Отодвигаем камеру
             camera.lookAt(0, 0, 0); // Направляем камеру на начало координат
 
-            // Добавляем оси для отладки
+            // Добавляем координатные оси для отладки
             const axesHelper = new THREE.AxesHelper(1);
             scene.add(axesHelper);
 
             // AR Source
             arToolkitSource = new THREEx.ArToolkitSource({
                 sourceType: 'webcam',
-                sourceWidth: 1280,
-                sourceHeight: 720
+                sourceWidth: window.innerWidth,
+                sourceHeight: window.innerHeight
             });
 
             // AR Context
             arToolkitContext = new THREEx.ArToolkitContext({
-                cameraParametersUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/camera_para.dat', // Используем CDN
+                cameraParametersUrl: 'data/camera_para.dat', 
                 detectionMode: 'mono',
                 maxDetectionRate: 60,
-                canvasWidth: 1280,
-                canvasHeight: 720
+                canvasWidth: window.innerWidth,
+                canvasHeight: window.innerHeight
             });
 
             // Инициализируем AR
@@ -110,7 +110,7 @@
             const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
             object3D = new THREE.Mesh(geometry, material);
             console.log('Куб создан:', object3D);
-            object3D.position.set(0, 0, 0); // Центр
+            object3D.position.set(0, 0, -1); // Позиционируем куб перед камерой
             if (markerRoot) {
                 markerRoot.add(object3D);
             } else {
