@@ -18,11 +18,10 @@
     <canvas id="videoCanvas"></canvas>
     <a-scene embedded>
         <a-entity id="custom-model" 
-          gltf-model="kamaz_4310.glb" 
-          scale="0.1 0.1 0.1" 
-          position="0 0 -3"
-          visible="false"
-          model-loaded="this.setAttribute('visible', true);"></a-entity>
+            gltf-model="kamaz_4310.glb" 
+            scale="0.1 0.1 0.1" 
+            position="0 0 -3">
+        </a-entity>
         <a-entity camera></a-entity>
     </a-scene>
 
@@ -90,6 +89,10 @@
                 const isIndexFingerUp = indexFinger.y < thumb.y; // Указательный палец поднят
 
                 const model = document.getElementById('custom-model');
+                model.addEventListener('model-loaded', () => {
+                    model.setAttribute('visible', true);
+                    console.log("Model is now visible");
+                });
 
                 // Уменьшение модели
                 if (isThumbIndexClose) {
