@@ -45,7 +45,11 @@
                 .then(stream => {
                     video.srcObject = stream;
                     video.play();
-                    detectHands(model);
+
+                    // Ждем, пока видео загрузится
+                    video.addEventListener('loadeddata', () => {
+                        detectHands(model);
+                    });
                 });
         });
 
