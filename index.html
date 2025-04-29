@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>AR Gesture Demo</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            /* Скрываем скроллбары */
+        }
+
+        #ar-container {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ar-container"></div>
+
+    <!-- Подключаем библиотеки -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-threex.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+    <script>
+        // Основные переменные
+        let renderer, scene, camera, arToolkitSource, arToolkitContext;
+        let object3D; // Наш 3D-объект
+
+        // Инициализация Three.js и AR.js
+        function initAR() {
+            // 1. Создаем рендерер
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true // Прозрачный фон
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('ar-container').appendChild(renderer.domElement);
+
+            // 2. Создаем сцену и камеру
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            // 3. Настраиваем AR.js
+            arToolkitSource = new THREEx.ArToolkitSource({
+                sourceType: 'webcam'
+            });
+
+            arToolkitContext = new THREEx.ArToolkitContext({
+                cameraParametersUrl: 'data/camera_para.dat',
+                detectionMode: 'mono'
+            });
+
+            // Инициализируем AR
+            arToolkitSource.init(() => {
+                arToolkitContext.init(() => {
+                    camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+                });
+            });
+        }
+        function loadCube() {
+            // Создаем простой куб (как временный объект)
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            object3D = new THREE.Mesh(geometry, material);
+
+            // Начальные настройки
+            //object3D.visible = false; // Сначала скрываем
+            object3D.position.set(0, 0, -0.5);
+            scene.add(object3D);
+        }
+        // Инициализация MediaPipe Hands
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        // Настройки распознавания
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
+        });
+
+        // Обработчик результатов
+        hands.onResults((results) => {
+            if (!results.multiHandLandmarks) return;
+
+            const landmarks = results.multiHandLandmarks[0];
+            updateObjectTransform(landmarks);
+        });
+        let isPinching = false;
+        let lastScale = 1;
+
+        function updateObjectTransform(landmarks) {
+            // Получаем ключевые точки
+            const thumbTip = landmarks[4];  // Кончик большого пальца
+            const indexTip = landmarks[8];  // Кончик указательного
+
+            // 1. Определяем пинч-жест (масштаб)
+            const pinchDistance = Math.hypot(
+                thumbTip.x - indexTip.x,
+                thumbTip.y - indexTip.y
+            );
+
+            if (pinchDistance < 0.05) { // Пороговое значение
+                if (!isPinching) {
+                    lastScale = object3D.scale.x;
+                    isPinching = true;
+                }
+                object3D.scale.setScalar(lastScale * (1 + (0.1 - pinchDistance)));
+            } else {
+                isPinching = false;
+            }
+
+            // 2. Определяем вращение (по запястью)
+            const wrist = landmarks[0]; // Точка запястья
+            const middleBase = landmarks[9]; // Основание среднего пальца
+
+            const angle = Math.atan2(
+                middleBase.y - wrist.y,
+                middleBase.x - wrist.x
+            );
+
+            object3D.rotation.y = angle * 2;
+        }
+        // Запуск приложения
+        function startApp() {
+            // Инициализируем AR
+            initAR();
+            loadCube();
+
+            // Запускаем камеру
+            const video = arToolkitSource.domElement;
+
+            // Запускаем обработку кадров
+            function animate() {
+                requestAnimationFrame(animate);
+
+                if (arToolkitSource.ready) {
+                    arToolkitContext.update(arToolkitSource.domElement);
+                    hands.send({ image: video });
+                    renderer.render(scene, camera);
+                }
+            }
+
+            animate();
+        }
+
+        // Запускаем приложение после загрузки страницы
+        window.addEventListener('load', startApp);
+    </script>
+</body>
+
+</html>
