@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Куб с A-Frame и маркерами</title>
+    <title>AR Куб с A-Frame и отслеживанием рук</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/handtrackjs/dist/handtrack.min.js"></script>
     <style>
         body { margin: 0; }
         canvas { display: block; }
@@ -13,14 +14,72 @@
 </head>
 <body>
     <a-scene embedded arjs='sourceType: webcam;'>
-        <!-- Маркер для отслеживания -->
-        <a-marker preset="hiro" id="hand-marker">
-            <a-entity geometry="primitive: box; width: 0.1; height: 0.1; depth: 0.1" 
-                      material="color: #ff0000" 
-                      position="0 0 0.5"></a-entity>
-        </a-marker>
-        
+        <a-entity id="custom-cube" 
+                  geometry="primitive: box; width: 0.2; height: 0.2; depth: 0.2" 
+                  material="color: #00ff00" 
+                  position="0 0 -1"></a-entity>
+        <a-entity id="hand-indicator" 
+                  geometry="primitive: sphere; radius: 0.05" 
+                  material="color: #ff0000; opacity: 0.5" 
+                  position="0 0 -1" visible="false"></a-entity>
         <a-entity camera></a-entity>
     </a-scene>
+
+    <script>
+        const video = document.createElement('video');
+        const cube = document.getElementById('custom-cube');
+        const handIndicator = document.getElementById('hand-indicator');
+
+        // Настройки для handtrack.js
+        const modelParams = {
+            flipHorizontal: true,
+            maxNumBoxes: 1,
+            iouThreshold: 0.5,
+            scoreThreshold: 0.6,
+        };
+
+        // Загружаем модель
+        handTrack.load(modelParams).then(model => {
+            // Запускаем видео
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.play();
+                    detectHands(model);
+                });
+        });
+
+        function detectHands(model) {
+            model.detect(video).then(predictions => {
+                if (predictions.length > 0) {
+                    const hand = predictions[0].bbox; // Получаем координаты руки
+                    const x = hand[0] + hand[2] / 2; // Центр по X
+                    const y = hand[1] + hand[3] / 2; // Центр по Y
+
+                    // Преобразуем координаты в A-Frame
+                    const scene = document.querySelector('a-scene');
+                    const width = scene.canvas.width;
+                    const height = scene.canvas.height;
+
+                    // Нормализуем координаты
+                    const normalizedX = (x / width) * 2 - 1;
+                    const normalizedY = -(y / height) * 2 + 1;
+
+                    // Устанавливаем позицию куба
+                    cube.setAttribute('position', { x: normalizedX, y: normalizedY, z: -1 });
+
+                    // Устанавливаем позицию индикатора руки и делаем его видимым
+                    handIndicator.setAttribute('position', { x: normalizedX, y: normalizedY, z: -1 });
+                    handIndicator.setAttribute('visible', 'true');
+                } else {
+                    // Если рука не обнаружена, скрываем индикатор
+                    handIndicator.setAttribute('visible', 'false');
+                }
+
+                // Продолжаем отслеживание
+                requestAnimationFrame(() => detectHands(model));
+            });
+        }
+    </script>
 </body>
 </html>
