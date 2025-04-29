@@ -93,14 +93,23 @@
                     const x = landmark.x * canvas.width;
                     const y = landmark.y * canvas.height;
                     ctx.beginPath();
-                                        ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                    ctx.arc(x, y, 5, 0, 2 * Math.PI);
                     ctx.fillStyle = "green";
                     ctx.fill();
                 }
 
-                // Используем кончик указательного пальца (точка 8) для перемещения куба
-                const handX = landmarks[8].x; // Кончик указательного пальца
-                const handY = landmarks[8].y;
+                // Используем кончик указательного пальца (точка 8) и большой палец (точка 4)
+                const indexTip = landmarks[8]; // Кончик указательного пальца
+                const thumbTip = landmarks[4]; // Кончик большого пальца
+
+                // Вычисляем расстояние между указательным и большим пальцами
+                const distance = Math.sqrt(
+                    Math.pow(indexTip.x - thumbTip.x, 2) + 
+                    Math.pow(indexTip.y - thumbTip.y, 2)
+                );
+
+                // Проверяем, сжаты ли пальцы
+                const isHandClosed = distance < 0.1; // Порог для определения сжатия
 
                 // Преобразуем координаты для A-Frame
                 const scene = document.querySelector('a-scene');
@@ -108,12 +117,28 @@
                 const height = scene.canvas.height;
 
                 // Нормализуем координаты
-                const normalizedX = (handX - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
-                const normalizedY = -(handY - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
+                const normalizedX = (indexTip.x - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
+                const normalizedY = -(indexTip.y - 0.5) * 4; // Преобразуем в диапазон [-2, 2]
 
                 // Устанавливаем позицию куба
                 const cube = document.getElementById('custom-cube');
                 cube.setAttribute('position', { x: normalizedX, y: normalizedY, z: -1 });
+
+                // Изменяем цвет куба при сжатии пальцев
+                if (isHandClosed) {
+                    cube.setAttribute('material', 'color', '#ff0000'); // Красный цвет при сжатии
+                } else {
+                    cube.setAttribute('material', 'color', '#00ff00'); // Зеленый цвет в обычном состоянии
+                }
+
+                // Дополнительный функционал: поворот куба в зависимости от угла ладони
+                const palmBase = landmarks[0]; // Запястье
+                const palmCenterX = (palmBase.x + indexTip.x) / 2;
+                const palmCenterY = (palmBase.y + indexTip.y) / 2;
+
+                // Устанавливаем поворот куба в зависимости от положения ладони
+                const angle = Math.atan2(palmCenterY - palmBase.y, palmCenterX - palmBase.x);
+                cube.setAttribute('rotation', { x: 0, y: angle * (180 / Math.PI), z: 0 }); // Поворот по оси Y
             }
         });
 
@@ -136,3 +161,4 @@
     </script>
 </body>
 </html>
+
