@@ -5,86 +5,79 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR Куб с A-Frame и отслеживанием рук</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/handtrackjs/dist/handtrack.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.8.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
     <style>
         body { margin: 0; }
-        canvas { display: block; }
+        video, canvas { position: absolute; top: 0; left: 0; }
     </style>
 </head>
 <body>
+    <video width="720" height="1200" autoplay></video>
+    <canvas width="720" height="1200"></canvas>
     <a-scene embedded arjs='sourceType: webcam;'>
         <a-entity id="custom-cube" 
                   geometry="primitive: box; width: 0.2; height: 0.2; depth: 0.2" 
                   material="color: #00ff00" 
                   position="0 0 -1"></a-entity>
-        <a-entity id="hand-indicator" 
-                  geometry="primitive: sphere; radius: 0.05" 
-                  material="color: #ff0000; opacity: 0.5" 
-                  position="0 0 -1" visible="false"></a-entity>
         <a-entity camera></a-entity>
     </a-scene>
 
-    <script>
-        const video = document.createElement('video');
-        const cube = document.getElementById('custom-cube');
-        const handIndicator = document.getElementById('hand-indicator');
+    <script type="module">
+        // Извлечение элементов из разметки
+        let video = window.document.querySelector('video');
+        let canvas = window.document.querySelector('canvas');
+        let context = canvas.getContext('2d');
 
-        // Настройки для handtrack.js
-        const modelParams = {
-            flipHorizontal: true,
-            maxNumBoxes: 1,
-            iouThreshold: 0.5,
-            scoreThreshold: 0.6,
-        };
-
-        // Загружаем модель
-        handTrack.load(modelParams).then(model => {
-            console.log("Модель загружена");
-            // Запускаем видео
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    video.srcObject = stream;
-                    video.play();
-
-                    // Ждем, пока видео загрузится
-                    video.addEventListener('loadeddata', () => {
-                        detectHands(model);
-                    });
-                });
-        });
-
-        function detectHands(model) {
-            model.detect(video).then(predictions => {
-                if (predictions.length > 0) {
-                    const hand = predictions[0].bbox; // Получаем координаты руки
-                    const x = hand[0] + hand[2] / 2; // Центр по X
-                    const y = hand[1] + hand[3] / 2; // Центр по Y
-
-                    // Преобразуем координаты в A-Frame
-                    const scene = document.querySelector('a-scene');
-                    const width = scene.canvas.width;
-                    const height = scene.canvas.height;
-
-                    // Нормализуем координаты
-                    const normalizedX = (x / width) * 2 - 1;
-                    const normalizedY = -(y / height) * 2 + 1;
-
-                    // Устанавливаем позицию куба
-                    cube.setAttribute('position', { x: normalizedX, y: normalizedY, z: -1 });
-
-                    // Устанавливаем позицию индикатора руки и делаем его видимым
-                    handIndicator.setAttribute('position', { x: normalizedX, y: normalizedY, z: -1 });
-                    handIndicator.setAttribute('visible', 'true');
-                } else {
-                    // Если рука не обнаружена, скрываем индикатор
-                    handIndicator.setAttribute('visible', 'false');
-                }
-
-                // Продолжаем отслеживание
-                requestAnimationFrame(() => detectHands(model));
-            });
+        // Загрузка и настройка модели
+        let model = handPoseDetection.SupportedModels.MediaPipeHands;
+        let detectorConfig = {
+            runtime: 'mediapipe', // or 'tfjs'
+            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands',
+            modelType: 'lite',
         }
+        let detector = await handPoseDetection.createDetector(model, detectorConfig);
+
+        // Получение изображения с камеры и отображение точек
+        navigator.mediaDevices.getUserMedia({
+            video: {
+                width: 1200,
+                height: 720,
+                facingMode: {
+                    exact: 'environment'
+                }
+            },
+            audio: false
+        }).then(stream => {
+            video.srcObject = stream;
+            video.play().then(() => {
+                setInterval(async () => {
+                    const predictions = await detector.estimateHands(video);
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    if (predictions.length > 0) {
+                        const hand = predictions[0].keypoints;
+                        hand.forEach(coordinates => {
+                            context.fillStyle = 'blue';
+                            context.fillRect(coordinates.x - 5, coordinates.y - 5, 10, 10);
+                        });
+
+                        // Преобразуем координаты для A-Frame
+                        const scene = document.querySelector('a-scene');
+                        const width = scene.canvas.width;
+                        const height = scene.canvas.height;
+
+                        // Нормализуем координаты
+                        const normalizedX = (hand[0].x / width) * 2 - 1; // Используем координаты первого ключевого пункта (обычно запястье)
+                        const normalizedY = -(hand[0].y / height) * 2 + 1;
+
+                        // Устанавливаем позицию куба
+                        const cube = document.getElementById('custom-cube');
+                        cube.setAttribute('position', { x: normalizedX, y: normalizedY, z: -1 });
+                    }
+                }, 100);
+            });
+        }).catch(error => console.log(error));
     </script>
 </body>
 </html>
